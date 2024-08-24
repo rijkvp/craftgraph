@@ -1,6 +1,7 @@
 use gamedata::{GameData, RecipeItem, RecipeItems};
 
 mod gamedata;
+mod graph;
 
 fn main() -> anyhow::Result<()> {
     let args = std::env::args().collect::<Vec<String>>();
@@ -12,8 +13,8 @@ fn main() -> anyhow::Result<()> {
     let game_data = GameData::load(&args[1])?;
 
     let items = RecipeItems::single(RecipeItem::Item(args[2].clone()));
-    let ingredients = game_data.get_ingredients_recursively(items);
-    println!("Ingredients for {}:\n{:#?}", args[2], ingredients);
+    let craft_graph = graph::calculate_craft_graph(game_data, items);
+    println!("Crafting graph for {}:\n{}", args[2], craft_graph);
 
     Ok(())
 }

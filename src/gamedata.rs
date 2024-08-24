@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, HashMap},
     fs::File,
 };
 use zip::ZipArchive;
@@ -17,8 +17,8 @@ const fn default_one() -> u32 {
 #[allow(unused)]
 pub struct RecipeResult {
     #[serde(default = "default_one")]
-    count: u32,
-    id: String,
+    pub count: u32,
+    pub id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
@@ -27,6 +27,15 @@ pub struct RecipeResult {
 pub enum RecipeItem {
     Item(String),
     Tag(String),
+}
+
+impl std::fmt::Display for RecipeItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecipeItem::Item(id) => write!(f, "{}", id),
+            RecipeItem::Tag(id) => write!(f, "#{}", id),
+        }
+    }
 }
 
 // NOTE: Automatic implementation of PartialEq and Eq for RecipeItem might not be correct in all cases!
@@ -47,6 +56,24 @@ impl RecipeItems {
         match self {
             RecipeItems::Single(item) => Box::new(std::iter::once(item)),
             RecipeItems::Multiple(items) => Box::new(items.into_iter()),
+        }
+    }
+}
+
+impl std::fmt::Display for RecipeItems {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecipeItems::Single(item) => write!(f, "{}", item),
+            RecipeItems::Multiple(items) => {
+                write!(f, "[")?;
+                for (idx, item) in items.iter().enumerate() {
+                    if idx > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", item)?;
+                }
+                write!(f, "]")
+            }
         }
     }
 }
@@ -125,7 +152,7 @@ pub enum Recipe {
 }
 
 impl Recipe {
-    fn get_result(&self) -> Option<&RecipeResult> {
+    pub fn get_result(&self) -> Option<&RecipeResult> {
         match self {
             Recipe::Shaped { result, .. } => Some(result),
             Recipe::Shapeless { result, .. } => Some(result),
@@ -135,7 +162,7 @@ impl Recipe {
         }
     }
 
-    fn get_ingredients(&self) -> Vec<(RecipeItems, u32)> {
+    pub fn get_ingredients(&self) -> Vec<(RecipeItems, u32)> {
         match self {
             Recipe::Shaped { key, pattern, .. } => {
                 let mut ingredients = Vec::new();
@@ -241,36 +268,5 @@ impl GameData {
             }
         }
         recipes
-    }
-
-    pub fn get_ingredients_recursively(&self, start: RecipeItems) -> Vec<(RecipeItems, u32)> {
-        println!("Traversing tree of {:?}", start);
-
-        let mut result = Vec::new();
-        let mut used = HashSet::new();
-        let mut queue = VecDeque::new();
-        queue.push_back(start);
-
-        while let Some(items) = queue.pop_front() {
-            if !used.insert(items.clone()) {
-                println!("Skipping {:?}", items);
-                continue;
-            }
-            println!("Processing {:?}", items);
-            // Get recipe for item (or multiple if it is a tag)
-            for item in items.iter() {
-                for recipe in self.get_recipes_for_item(item) {
-                    for (ingredient, count) in recipe.get_ingredients() {
-                        println!(
-                            "Ingredient {:?} x{} needed for {:?}",
-                            ingredient, count, item
-                        );
-                        result.push((ingredient.clone(), count));
-                        queue.push_back(ingredient);
-                    }
-                }
-            }
-        }
-        result
     }
 }
