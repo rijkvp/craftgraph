@@ -2,11 +2,12 @@ use std::collections::VecDeque;
 
 use num::rational::Ratio;
 
-use crate::gamedata::{GameData, RecipeItems};
+use crate::gamedata::{GameData, Recipe, RecipeItems};
 
 pub struct CraftGraph {
     nodes: Vec<(RecipeItems, Ratio<u32>)>,
-    edges: Vec<(usize, usize)>,
+    edges: Vec<(usize, usize, usize)>,
+    recipes: Vec<Recipe>,
 }
 
 impl std::fmt::Display for CraftGraph {
@@ -16,8 +17,8 @@ impl std::fmt::Display for CraftGraph {
             writeln!(f, "{idx}: {items} x{ratio}")?;
         }
         writeln!(f, "EDGES:")?;
-        for (idx, parent_idx) in &self.edges {
-            writeln!(f, "{parent_idx} -> {idx}")?;
+        for (idx, parent_idx, recipe_idx) in &self.edges {
+            writeln!(f, "{idx} -> {parent_idx} ({})", self.recipes[*recipe_idx])?;
         }
         Ok(())
     }
@@ -26,6 +27,7 @@ impl std::fmt::Display for CraftGraph {
 pub fn calculate_craft_graph(game_data: GameData, start: RecipeItems) -> CraftGraph {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
+    let mut recipes = Vec::new();
 
     let mut queue = VecDeque::new(); // items, ratio, parent_idx
     queue.push_back((start.clone(), Ratio::ONE, 0));
@@ -35,7 +37,11 @@ pub fn calculate_craft_graph(game_data: GameData, start: RecipeItems) -> CraftGr
         eprintln!("[NODE] {} (x{})", items, parent_ratio);
         for item in items.iter() {
             for recipe in game_data.get_recipes_for_item(item) {
+                recipes.push(recipe.clone());
+                let recipe_idx = recipes.len() - 1;
+
                 let recipe_result = recipe.get_result().unwrap();
+
                 for (ingredient, item_ratio) in recipe.get_ingredients() {
                     // Check if this ingredient is already in the graph
                     if nodes.iter().any(|(i, _)| i == &ingredient) {
@@ -49,7 +55,7 @@ pub fn calculate_craft_graph(game_data: GameData, start: RecipeItems) -> CraftGr
 
                     // Add edge from new node to parent
                     let node_idx = nodes.len() - 1;
-                    edges.push((node_idx, parent_idx));
+                    edges.push((node_idx, parent_idx, recipe_idx));
                     eprintln!(
                         "[EDGE] {ingredient} (x{item_ratio}) -> {item} (x{})  (ratio={new_ratio})",
                         recipe_result.count
@@ -61,5 +67,5 @@ pub fn calculate_craft_graph(game_data: GameData, start: RecipeItems) -> CraftGr
             }
         }
     }
-    CraftGraph { nodes, edges }
+    CraftGraph { nodes, edges, recipes }
 }

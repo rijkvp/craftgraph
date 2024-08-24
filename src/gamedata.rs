@@ -189,6 +189,32 @@ impl Recipe {
             _ => Vec::new(),
         }
     }
+
+    pub fn get_kind(&self) -> &str {
+        match self {
+            Recipe::Shaped { .. } => "Shaped",
+            Recipe::Shapeless { .. } => "Shapeless",
+            Recipe::Stonecutting { .. } => "Stonecutting",
+            Recipe::Smelting { .. } => "Smelting",
+            _ => "Unsupported",
+        }
+    }
+}
+
+impl std::fmt::Display for Recipe {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ingredients = self.get_ingredients();
+        for (idx, (item, count)) in ingredients.iter().enumerate() {
+            if idx > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{} x{}", item, count)?;
+        }
+        let result = self.get_result().unwrap();
+        write!(f, " -> {} x{}", result.id, result.count)?;
+        write!(f, " ({})", self.get_kind())?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
