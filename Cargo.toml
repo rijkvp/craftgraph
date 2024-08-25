@@ -3,9 +3,24 @@ name = "craftgraph"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "craftgraph-cli"
+path = "src/cli.rs"
+
 [dependencies]
 anyhow = "1.0.86"
-num = "0.4.3"
+num-rational = "0.4.2"
 serde = { version = "1.0.208", features = ["derive"] }
 serde_json = "1.0.125"
-zip = "2.1.6"
+wasm-bindgen = "=0.2.92"
+zip = { version = "2.1.6", default-features = false, features = ["deflate"] }
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"

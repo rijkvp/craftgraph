@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fs::File,
 };
 use zip::ZipArchive;
@@ -13,7 +13,7 @@ const fn default_one() -> u32 {
     1
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(unused)]
 pub struct RecipeResult {
     #[serde(default = "default_one")]
@@ -21,7 +21,7 @@ pub struct RecipeResult {
     pub id: String,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 #[allow(unused)]
 pub enum RecipeItem {
@@ -39,7 +39,7 @@ impl std::fmt::Display for RecipeItem {
 }
 
 // NOTE: Automatic implementation of PartialEq and Eq for RecipeItem might not be correct in all cases!
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(untagged)]
 #[allow(unused)]
 pub enum RecipeItems {
@@ -78,7 +78,7 @@ impl std::fmt::Display for RecipeItems {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[allow(unused)]
 pub enum Recipe {
@@ -162,7 +162,7 @@ impl Recipe {
         }
     }
 
-    pub fn get_ingredients(&self) -> Vec<(RecipeItems, u32)> {
+    pub fn get_ingredients(&self) -> Vec<(&RecipeItems, u32)> {
         match self {
             Recipe::Shaped { key, pattern, .. } => {
                 let mut ingredients = Vec::new();
@@ -170,22 +170,20 @@ impl Recipe {
                     for c in row.chars() {
                         if let Some(items) = key.get(&c.to_string()) {
                             if let Some((_, count)) =
-                                ingredients.iter_mut().find(|(i, _)| i == items)
+                                ingredients.iter_mut().find(|(i, _)| *i == items)
                             {
                                 *count += 1;
                             } else {
-                                ingredients.push((items.clone(), 1));
+                                ingredients.push((items, 1));
                             }
                         }
                     }
                 }
                 ingredients
             }
-            Recipe::Shapeless { ingredients, .. } => {
-                ingredients.iter().map(|i| (i.clone(), 1)).collect()
-            }
-            Recipe::Stonecutting { ingredient, .. } => vec![(ingredient.clone(), 1)],
-            Recipe::Smelting { ingredient, .. } => vec![(ingredient.clone(), 1)],
+            Recipe::Shapeless { ingredients, .. } => ingredients.iter().map(|i| (i, 1)).collect(),
+            Recipe::Stonecutting { ingredient, .. } => vec![(ingredient, 1)],
+            Recipe::Smelting { ingredient, .. } => vec![(ingredient, 1)],
             _ => Vec::new(),
         }
     }
@@ -217,7 +215,7 @@ impl std::fmt::Display for Recipe {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Tag {
     values: Vec<String>,
 }
@@ -230,6 +228,13 @@ pub struct GameData {
 fn read_archive(file_name: &str) -> anyhow::Result<ZipArchive<File>> {
     let file = File::open(file_name)?;
     Ok(ZipArchive::new(file)?)
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GameExport<'a> {
+    items: Vec<&'a str>,
+    recipes: Vec<Recipe>,
+    tags: HashMap<String, Tag>,
 }
 
 impl GameData {
@@ -294,5 +299,41 @@ impl GameData {
             }
         }
         recipes
+    }
+
+    fn export_items(&self) -> Vec<&str> {
+        let mut items: HashSet<&str> = HashSet::new();
+        for recipe in &self.recipes {
+            for (recipe_items, _) in recipe.get_ingredients() {
+                for item in recipe_items.iter() {
+                    match item {
+                        RecipeItem::Item(id) => {
+                            items.insert(id);
+                        }
+                        RecipeItem::Tag(id) => {
+                            let tag_items = self.resolve_tag(&id).expect("Failed to resolve tag");
+                            for tag_item in tag_items {
+                                items.insert(tag_item);
+                            }
+                        }
+                    }
+                }
+            }
+            if let Some(recipe_result) = recipe.get_result() {
+                items.insert(&recipe_result.id);
+            }
+        }
+        let mut items: Vec<&str> = items.into_iter().collect();
+        items.sort();
+        items
+    }
+
+    pub fn export(&self) -> GameExport {
+        let items = self.export_items();
+        GameExport {
+            items,
+            recipes: self.recipes.clone(),
+            tags: self.tags.clone(),
+        }
     }
 }

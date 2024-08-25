@@ -11,6 +11,11 @@
       {
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
+            nodejs_22
+            wasm-pack
+            wasm-bindgen-cli
+            binaryen
+            lld
             rustc
             cargo
             clippy

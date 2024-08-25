@@ -1,8 +1,6 @@
-use std::collections::VecDeque;
-
-use num::rational::Ratio;
-
 use crate::gamedata::{GameData, Recipe, RecipeItems};
+use num_rational::Ratio;
+use std::collections::VecDeque;
 
 pub struct CraftGraph {
     nodes: Vec<(RecipeItems, Ratio<u32>)>,
@@ -24,14 +22,14 @@ impl std::fmt::Display for CraftGraph {
     }
 }
 
-pub fn calculate_craft_graph(game_data: GameData, start: RecipeItems) -> CraftGraph {
+pub fn calculate_craft_graph(game_data: &GameData, start: RecipeItems) -> CraftGraph {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
     let mut recipes = Vec::new();
 
     let mut queue = VecDeque::new(); // items, ratio, parent_idx
-    queue.push_back((start.clone(), Ratio::ONE, 0));
-    nodes.push((start, Ratio::ONE));
+    nodes.push((start.clone(), Ratio::ONE));
+    queue.push_back((&start, Ratio::ONE, 0));
 
     while let Some((items, parent_ratio, parent_idx)) = queue.pop_front() {
         eprintln!("[NODE] {} (x{})", items, parent_ratio);
@@ -44,7 +42,7 @@ pub fn calculate_craft_graph(game_data: GameData, start: RecipeItems) -> CraftGr
 
                 for (ingredient, item_ratio) in recipe.get_ingredients() {
                     // Check if this ingredient is already in the graph
-                    if nodes.iter().any(|(i, _)| i == &ingredient) {
+                    if nodes.iter().any(|(i, _)| i == ingredient) {
                         continue;
                     }
 
@@ -67,5 +65,9 @@ pub fn calculate_craft_graph(game_data: GameData, start: RecipeItems) -> CraftGr
             }
         }
     }
-    CraftGraph { nodes, edges, recipes }
+    CraftGraph {
+        nodes,
+        edges,
+        recipes,
+    }
 }

@@ -13,8 +13,12 @@ fn main() -> anyhow::Result<()> {
     let game_data = GameData::load(&args[1])?;
 
     let items = RecipeItems::single(RecipeItem::Item(args[2].clone()));
-    let craft_graph = graph::calculate_craft_graph(game_data, items);
+    let craft_graph = graph::calculate_craft_graph(&game_data, items);
     println!("Crafting graph for {}:\n{}", args[2], craft_graph);
+
+    let export = game_data.export();
+    let export_file = std::fs::File::create("export.json")?;
+    serde_json::to_writer(export_file, &export)?;
 
     Ok(())
 }
