@@ -302,30 +302,31 @@ impl GameData {
     }
 
     fn export_items(&self) -> Vec<&str> {
-        let mut items: HashSet<&str> = HashSet::new();
+        let mut item_ids: HashSet<&str> = HashSet::new();
         for recipe in &self.recipes {
             for (recipe_items, _) in recipe.get_ingredients() {
                 for item in recipe_items.iter() {
                     match item {
                         RecipeItem::Item(id) => {
-                            items.insert(id);
+                            item_ids.insert(id);
                         }
                         RecipeItem::Tag(id) => {
                             let tag_items = self.resolve_tag(&id).expect("Failed to resolve tag");
                             for tag_item in tag_items {
-                                items.insert(tag_item);
+                                item_ids.insert(tag_item);
                             }
                         }
                     }
                 }
             }
             if let Some(recipe_result) = recipe.get_result() {
-                items.insert(&recipe_result.id);
+                item_ids.insert(&recipe_result.id);
             }
         }
-        let mut items: Vec<&str> = items.into_iter().collect();
-        items.sort();
-        items
+        // split of the "minecraft:" prefix
+        let mut item_names: Vec<&str> = item_ids.into_iter().map(|s| &s[10..]).collect();
+        item_names.sort();
+        item_names
     }
 
     pub fn export(&self) -> GameExport {
