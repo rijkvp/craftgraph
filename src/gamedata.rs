@@ -220,7 +220,9 @@ struct Tag {
     values: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameData {
+    pub items: Vec<String>,
     recipes: Vec<Recipe>,
     tags: HashMap<String, Tag>,
 }
@@ -228,13 +230,6 @@ pub struct GameData {
 fn read_archive(file_name: &str) -> anyhow::Result<ZipArchive<File>> {
     let file = File::open(file_name)?;
     Ok(ZipArchive::new(file)?)
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GameExport<'a> {
-    items: Vec<&'a str>,
-    recipes: Vec<Recipe>,
-    tags: HashMap<String, Tag>,
 }
 
 impl GameData {
@@ -261,24 +256,16 @@ impl GameData {
                 }
             }
         }
-        Ok(Self { recipes, tags })
+        let items = export_items(&recipes, &tags);
+        Ok(Self {
+            items,
+            recipes,
+            tags,
+        })
     }
 
     pub fn resolve_tag<'a>(&'a self, tag_name: &str) -> Result<Vec<&'a str>> {
-        let mut item_ids = Vec::new();
-        let tag = self
-            .tags
-            .get(tag_name)
-            .context(anyhow!("Tag '{tag_name}' not found"))?;
-        for value in &tag.values {
-            // Tags are nested by adding a '#' in front of the tag name
-            if value.starts_with('#') {
-                item_ids.extend(self.resolve_tag(&value[1..])?);
-            } else {
-                item_ids.push(value);
-            }
-        }
-        Ok(item_ids)
+        resolve_tag_inner(tag_name, &self.tags)
     }
 
     fn resolve_item<'a>(&'a self, item: &'a RecipeItem) -> Vec<&'a str> {
@@ -300,41 +287,49 @@ impl GameData {
         }
         recipes
     }
+}
 
-    fn export_items(&self) -> Vec<&str> {
-        let mut item_ids: HashSet<&str> = HashSet::new();
-        for recipe in &self.recipes {
-            for (recipe_items, _) in recipe.get_ingredients() {
-                for item in recipe_items.iter() {
-                    match item {
-                        RecipeItem::Item(id) => {
-                            item_ids.insert(id);
-                        }
-                        RecipeItem::Tag(id) => {
-                            let tag_items = self.resolve_tag(&id).expect("Failed to resolve tag");
-                            for tag_item in tag_items {
-                                item_ids.insert(tag_item);
-                            }
+fn resolve_tag_inner<'a>(tag_name: &str, tags: &'a HashMap<String, Tag>) -> Result<Vec<&'a str>> {
+    let mut item_ids = Vec::new();
+    let tag = tags
+        .get(tag_name)
+        .context(anyhow!("Tag '{tag_name}' not found"))?;
+    for value in &tag.values {
+        // Tags are nested by adding a '#' in front of the tag name
+        if value.starts_with('#') {
+            item_ids.extend(resolve_tag_inner(&value[1..], tags)?);
+        } else {
+            item_ids.push(value);
+        }
+    }
+    Ok(item_ids)
+}
+
+fn export_items(recipes: &Vec<Recipe>, tags: &HashMap<String, Tag>) -> Vec<String> {
+    let mut item_ids: HashSet<&str> = HashSet::new();
+    for recipe in recipes {
+        for (recipe_items, _) in recipe.get_ingredients() {
+            for item in recipe_items.iter() {
+                match item {
+                    RecipeItem::Item(id) => {
+                        item_ids.insert(id);
+                    }
+                    RecipeItem::Tag(id) => {
+                        let tag_items =
+                            resolve_tag_inner(&id, tags).expect("Failed to resolve tag");
+                        for tag_item in tag_items {
+                            item_ids.insert(tag_item);
                         }
                     }
                 }
             }
-            if let Some(recipe_result) = recipe.get_result() {
-                item_ids.insert(&recipe_result.id);
-            }
         }
-        // split of the "minecraft:" prefix
-        let mut item_names: Vec<&str> = item_ids.into_iter().map(|s| &s[10..]).collect();
-        item_names.sort();
-        item_names
-    }
-
-    pub fn export(&self) -> GameExport {
-        let items = self.export_items();
-        GameExport {
-            items,
-            recipes: self.recipes.clone(),
-            tags: self.tags.clone(),
+        if let Some(recipe_result) = recipe.get_result() {
+            item_ids.insert(&recipe_result.id);
         }
     }
+    // split of the "minecraft:" prefix
+    let mut item_names: Vec<String> = item_ids.into_iter().map(|s| s[10..].to_string()).collect();
+    item_names.sort();
+    item_names
 }

@@ -16,9 +16,8 @@ fn main() -> anyhow::Result<()> {
     let craft_graph = graph::calculate_craft_graph(&game_data, items);
     println!("Crafting graph for {}:\n{}", args[2], craft_graph);
 
-    let export = game_data.export();
     let export_file = std::fs::File::create("export.json")?;
-    serde_json::to_writer(export_file, &export)?;
+    serde_json::to_writer(export_file, &game_data)?;
 
     Ok(())
 }

@@ -1,7 +1,9 @@
 use crate::gamedata::{GameData, Recipe, RecipeItems};
 use num_rational::Ratio;
+use serde::Serialize;
 use std::collections::VecDeque;
 
+#[derive(Debug, Clone, Serialize)]
 pub struct CraftGraph {
     nodes: Vec<(RecipeItems, Ratio<u32>)>,
     edges: Vec<(usize, usize, usize)>,

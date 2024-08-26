@@ -12,10 +12,14 @@ path = "src/cli.rs"
 
 [dependencies]
 anyhow = "1.0.86"
-num-rational = "0.4.2"
+js-sys = "0.3.70"
+num-rational = { version =  "0.4.2", features = ["serde"] }
 serde = { version = "1.0.208", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
 serde_json = "1.0.125"
-wasm-bindgen = "=0.2.92"
+wasm-bindgen = "0.2.93"
+wasm-bindgen-futures = "0.4.43"
+web-sys = { version = "0.3.70", features = ["Headers", "Request", "RequestInit", "RequestMode", "Response", "Window"] }
 zip = { version = "2.1.6", default-features = false, features = ["deflate"] }
 
 [profile.release]

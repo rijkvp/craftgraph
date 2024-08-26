@@ -1,15 +1,17 @@
 <script lang="ts">
-	import type { PageData } from './$types';
-    import init, { add } from '../../../../pkg/craftgraph';
-	
-	export let data: PageData;
+    import type { PageData } from "./$types";
 
-    let result = 0;
-    init().then(() => {
-        result = add(3, 5);
-    });
+    export let data: PageData;
 </script>
 
 <h1>{data.item}</h1>
 
-<h2>3 + 5 = {result}</h2>
+<p>Graph: {JSON.stringify(data.craftGraph, null, 4)}</p>
+
+<style>
+    p {
+        white-space: pre-wrap;
+        text-align: left;
+        font-family: monospace;
+    }
+</style>
